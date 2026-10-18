@@ -106,7 +106,7 @@ type SecureProcessBody = {
   customTerms?: unknown;
 };
 
-app.post("/api/secure-process", async (req, res) => {
+app.post("/api/secure-process", async(req, res) => {
   const body: unknown = req.body;
 
   if (!body || typeof body !== "object" || Array.isArray(body)) {

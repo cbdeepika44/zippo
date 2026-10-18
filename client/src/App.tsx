@@ -56,6 +56,45 @@ function App() {
     }
   }
 
+  async function processWithAI() {
+  try {
+    const terms = customTermsText
+      .split(',')
+      .map((term: string) => term.trim())
+      .filter(Boolean)
+
+    const response = await fetch('/api/secure-process', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        document: documentText,
+        question: 'Summarize this document in one sentence.',
+        customTerms: terms,
+      }),
+    })
+
+    const data = await response.json()
+
+    if (!response.ok || data.status !== 'ALLOWED') {
+      console.error('Secure processing blocked:', data)
+      alert(
+        Array.isArray(data.reasons)
+          ? data.reasons.join('\n')
+          : 'Secure processing was blocked.'
+      )
+      return
+    }
+
+    alert(data.answer ?? 'The backend returned no AI answer.')
+    console.log('Secure-process result:', data)
+  } catch (error) {
+    console.error('AI processing failed:', error)
+    alert('Could not reach ClearGate. Check that the backend is running.')
+  }
+}
+
 
   const totalDetections = detections.reduce(
     (total, detection) => total + detection.count,
@@ -180,6 +219,15 @@ function App() {
                 <p className="field-hint">Separate terms with commas. Matching is case-insensitive.</p>
                 <button className="primary-button" type="button" onClick={scanText} disabled={!documentText.trim()}>
                   <span>⌕</span> Scan for sensitive data <span className="button-arrow">→</span>
+                </button>
+                <button
+                  className="primary-button"
+                  type="button"
+                  onClick={processWithAI}
+                  disabled={!documentText.trim()}
+                >
+                  ✨ Ask Local AI
+                  <span className="button-arrow">→</span>
                 </button>
               </div>
 
