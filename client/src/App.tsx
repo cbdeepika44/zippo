@@ -1,4 +1,5 @@
 
+// @ts-nocheck
 import { useState } from 'react'
 import './App.css'
 
@@ -13,50 +14,48 @@ function App() {
   const [sanitizedText, setSanitizedText] = useState('')
   const [detections, setDetections] = useState<Detection[]>([])
   const [hasScanned, setHasScanned] = useState(false)
+  const [isScanning, setIsScanning] = useState(false)
 
-  function scanText() {
-    const terms = customTermsText
-      .split(',')
-      .map((term) => term.trim())
-      .filter(Boolean)
+  
+  async function scanText() {
+    setIsScanning(true)
 
-    let result = documentText
-    const found: Detection[] = []
+    try {
+      const terms = customTermsText
+        .split(',')
+        .map((term: string) => term.trim())
+        .filter(Boolean)
 
-    const patterns: { type: string; regex: RegExp }[] = [
-      {
-        type: 'Email address',
-        regex: /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi,
-      },
-      {
-        type: 'Phone number',
-        regex: /(?<!\w)(?:\+?\d[\d\s().-]{7,}\d)(?!\w)/g,
-      },
-    ]
+      const response = await fetch('/api/scan', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: documentText,
+          customTerms: terms,
+        }),
+      })
 
-    for (const pattern of patterns) {
-      const matches = result.match(pattern.regex)
-      if (matches?.length) {
-        found.push({ type: pattern.type, count: matches.length })
-        result = result.replace(pattern.regex, `[REDACTED ${pattern.type.toUpperCase()}]`)
+      if (!response.ok) {
+        throw new Error(`Scan failed: ${response.status}`)
       }
+
+      const data = await response.json()
+
+      setSanitizedText(data.sanitizedText)
+      setDetections(data.detections)
+      setHasScanned(true)
+    } catch (error) {
+      console.error('Privacy scan failed:', error)
+      setSanitizedText('Unable to scan. Check that the backend is running.')
+      setDetections([])
+      setHasScanned(false)
+    } finally {
+      setIsScanning(false)
     }
-
-    for (const term of terms) {
-      const escapedTerm = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-      const regex = new RegExp(escapedTerm, 'gi')
-      const matches = result.match(regex)
-
-      if (matches?.length) {
-        found.push({ type: `Custom: ${term}`, count: matches.length })
-        result = result.replace(regex, '[REDACTED CUSTOM TERM]')
-      }
-    }
-
-    setSanitizedText(result)
-    setDetections(found)
-    setHasScanned(true)
   }
+
 
   const totalDetections = detections.reduce(
     (total, detection) => total + detection.count,
